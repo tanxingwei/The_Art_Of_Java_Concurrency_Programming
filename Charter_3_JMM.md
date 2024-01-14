@@ -112,9 +112,9 @@ StoreLoad屏障是一个全能型的屏障, 它同时具有其他三个屏障的
 2. 顺序一致性内存模型保证所有线程可以看见一致的执行顺序(操作变量直接刷到全局内存中, 并且所有线程可见), 而JMM不能保证(线程有自身的本地内存, 放有共享变量的副本)
 3. JMM不能保证对读long, double类型的变量具有原子性(一些32位处理器, 可能会把对64位的long,double类型变量分解为两次32位的写操作进行).而顺序一致性内存模型可以保证所有对内存的读写操作都具有原子性
 
-
-
 在同步的程序中, 顺序一致性内存模型相当于一板一眼的写出过程的参考答案,而JMM则是在正确答案的过程中省略合并了某些步骤. 
+
+
 
 ## 5. happens-before 与 as-if-serial
 
@@ -150,17 +150,33 @@ as-if-serial语义给编写单线程程序的程序员创建了一个幻觉: 单
 共性:
 都是为了在不改变程序运行结果的前提下,尽可能提高线程的并发度.
 
+#### happens-before的规则
+
+程序规则: 一个线程中的每个操作, happens-before与该线程中的任意后续操作
+
+监视器锁规则: 对于一个锁的解锁, happens-before于随后对这个锁的加锁
+
+volatile规则: 对于一个volatile写操作, happens-before与任意后续对该变量的读操作
+
+传递性规则: 如果 A happens-before B, 且B happens-before C, 那么  A happens-before于C
+
+start()规则: 如果在A执行B.start(), 那么A线程中的B.start() happens-before于任意B线程中的任意操作
+
+join()规则: 
+
+
+
 ## 6. 同步原语的内存语义
 
 ### volatile 
 
 #### volatile的特性
 
-1. 可见性
+1. **可见性**
 
    对volatile变量的读操作, 总是能看到最后一次的写结果. 或者 每一次的写操作都对任意线程可见
 
-2. 原子性
+2. **原子性**
 
    任意对单个的volatile变量的读写操作具有原子性.
 
@@ -176,9 +192,24 @@ volatile读与锁的获取有相同的内存语义.
 		在读一个volatile变量的时候, 会插入一个Load类型的内存屏障, 保证这个读操作读到的是最新的写入结果
 		类似的情况是锁的获取, 在获取一个锁之前, 在锁释放之前的所有操作对当前的加锁操作都是可见的.
 
-#### volatile的写操作
+#### volatile的读写内存语义
 
+//  这里的具体底层实现参考MESI协议
 
+当写一个volatile变量时, JMM会将该线程中的本地共享变量副本副本刷新到主内存中.
+
+当读一个volatile变量时, JMM会将本地内存中的共享变量副本设为无效,再从主内存中读取.
+
+#### 重排序规则
+
+![重排序示意表](https://raw.githubusercontent.com/tanxingwei/bolgImg/master/2024/01/13/20240113-015634.png)
+
+当第二个操作是volatile写时, 不管第一个操作是什么, 都不能重排序.
+当第一个操作是volatile读时, 不管第二个操作是什么, 都不能重排序.
+
+#### 内存屏障
+
+在volatile写之前, 插入StoreStore屏障,  保证volatile写操作之前 该屏障确保Store1立刻刷新数据到内存(使其对其他处理器可见)的操作先于Store2及其后所有存储指令的操作
 
 ### synchronized
 
@@ -187,4 +218,8 @@ volatile读与锁的获取有相同的内存语义.
 ### finnal
 
 ## 总结
+
+参考文档: 
+
+[Java内存访问重排序的研究](https://tech.meituan.com/2014/09/23/java-memory-reordering.html)
 
